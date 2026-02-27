@@ -1,0 +1,144 @@
+GAUGE WORKING CODE 
+change wifi based on the wii connection 
+
+
+
+
+
+
+
+#define BLYNK_TEMPLATE_ID "TMPL36bLV619Z"
+#define BLYNK_TEMPLATE_NAME "Salt and Good Water Home Automation"
+#define BLYNK_AUTH_TOKEN "JKUta7f6IP6kpCu3puwUkh1hx-6Zz0x5"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+/************ WIFI ************/
+char ssid[] = "Sam";
+char pass[] = "samuel2356";
+
+/************ SENSOR PINS (LOW = FULL) ************/
+#define TANK_A1 14   // D5 - Xavier Salt
+#define TANK_A2 12   // D6 - Baby Salt
+#define TANK_B1 13   // D7 - Aquaguard Good
+#define TANK_B2 0    // D3 - Bathroom Good
+
+/************ RELAY PINS (ACTIVE LOW) ************/
+#define RELAY_SALT 5   // D1
+#define RELAY_GOOD 4   // D2
+
+/************ STATE ************/
+int saltMotor = 0;
+int goodMotor = 0;
+
+int selectedSaltTank = -1;   // 0 = Xavier, 1 = Baby
+int selectedGoodTank = -1;   // 0 = Aquaguard, 1 = Bathroom
+
+/************ BLYNK ************/
+
+// Salt Motor
+BLYNK_WRITE(V1) {
+  if (param.asInt() == 1) {
+    // block if tank already full
+    if ((selectedSaltTank == 0 && digitalRead(TANK_A1) == LOW) ||
+        (selectedSaltTank == 1 && digitalRead(TANK_A2) == LOW)) {
+      Blynk.virtualWrite(V1, 0);
+      return;
+    }
+  }
+  saltMotor = param.asInt();
+  digitalWrite(RELAY_SALT, saltMotor ? LOW : HIGH);
+}
+
+// Good Motor
+BLYNK_WRITE(V2) {
+  if (param.asInt() == 1) {
+    if ((selectedGoodTank == 0 && digitalRead(TANK_B1) == LOW) ||
+        (selectedGoodTank == 1 && digitalRead(TANK_B2) == LOW)) {
+      Blynk.virtualWrite(V2, 0);
+      return;
+    }
+  }
+  goodMotor = param.asInt();
+  digitalWrite(RELAY_GOOD, goodMotor ? LOW : HIGH);
+}
+
+// Salt Tank Dropdown
+BLYNK_WRITE(V3) {
+  selectedSaltTank = param.asInt();
+}
+
+// Good Tank Dropdown
+BLYNK_WRITE(V8) {
+  selectedGoodTank = param.asInt();
+}
+
+/************ AUTO OFF + GAUGE ************/
+void checkAutoOff() {
+
+  int a1 = digitalRead(TANK_A1);
+  int a2 = digitalRead(TANK_A2);
+  int b1 = digitalRead(TANK_B1);
+  int b2 = digitalRead(TANK_B2);
+
+  // ---- GAUGES ----
+  Blynk.virtualWrite(V4, a1 == LOW ? 100 : 0);
+  Blynk.virtualWrite(V5, a2 == LOW ? 100 : 0);
+  Blynk.virtualWrite(V6, b1 == LOW ? 100 : 0);
+  Blynk.virtualWrite(V7, b2 == LOW ? 100 : 0);
+
+  // ---- SALT AUTO OFF ----
+  if (saltMotor == 1) {
+    if (selectedSaltTank == 0 && a1 == LOW) {
+      digitalWrite(RELAY_SALT, HIGH);
+      saltMotor = 0;
+      Blynk.virtualWrite(V1, 0);
+      Blynk.logEvent("xavier_full");
+    }
+    else if (selectedSaltTank == 1 && a2 == LOW) {
+      digitalWrite(RELAY_SALT, HIGH);
+      saltMotor = 0;
+      Blynk.virtualWrite(V1, 0);
+      Blynk.logEvent("baby_full");
+    }
+  }
+
+  // ---- GOOD AUTO OFF ----
+  if (goodMotor == 1) {
+    if (selectedGoodTank == 0 && b1 == LOW) {
+      digitalWrite(RELAY_GOOD, HIGH);
+      goodMotor = 0;
+      Blynk.virtualWrite(V2, 0);
+      Blynk.logEvent("aquaguard_full");
+    }
+    else if (selectedGoodTank == 1 && b2 == LOW) {
+      digitalWrite(RELAY_GOOD, HIGH);
+      goodMotor = 0;
+      Blynk.virtualWrite(V2, 0);
+      Blynk.logEvent("bathroom_full");
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(RELAY_SALT, OUTPUT);
+  pinMode(RELAY_GOOD, OUTPUT);
+
+  pinMode(TANK_A1, INPUT_PULLUP);
+  pinMode(TANK_A2, INPUT_PULLUP);
+  pinMode(TANK_B1, INPUT_PULLUP);
+  pinMode(TANK_B2, INPUT_PULLUP);
+
+  digitalWrite(RELAY_SALT, HIGH);
+  digitalWrite(RELAY_GOOD, HIGH);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+}
+
+void loop() {
+  Blynk.run();
+  checkAutoOff();
+}
