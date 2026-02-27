@@ -1,0 +1,54 @@
+1) PIN CONNECTIONS
+RELAY CONNECTIONS (Active LOW)
+Salt Motor Relay -> GPIO5 (D1)
+Good Motor Relay -> GPIO4 (D2)
+Relay Wiring:
+VCC -> 5V (VIN)
+GND -> GND
+IN1 -> D1
+IN2 -> D2
+TANK SENSOR CONNECTIONS (LOW = FULL)
+Xavier Salt -> GPIO14 (D5)
+Baby Salt -> GPIO12 (D6)
+Aquaguard Good -> GPIO13 (D7)
+Bathroom Good -> GPIO0 (D3)
+Sensor Wiring:
+One wire -> GND
+Other wire -> D5/D6/D7/D3
+Using INPUT_PULLUP mode.
+------------------------------------------------------------
+2) SYSTEM WORKING
+Step 1: ESP8266 connects to WiFi and Blynk Cloud.
+Step 2: Tank Selection using Dropdown
+Salt Tank -> V3 (0 = Xavier, 1 = Baby)
+Good Tank -> V8 (0 = Aquaguard, 1 = Bathroom)
+Step 3: Motor Control
+Salt Motor -> V1
+Good Motor -> V2
+Motor turns ON only if tank is not full.
+Relay is Active LOW:
+LOW -> Motor ON
+HIGH -> Motor OFF
+------------------------------------------------------------
+3) GAUGE WORKING
+Gauge Pins:
+V4 -> Xavier Salt
+V5 -> Baby Salt
+V6 -> Aquaguard
+V7 -> Bathroom
+If sensor reads LOW (Full) -> Gauge shows 100%
+If sensor reads HIGH (Not Full) -> Gauge shows 0%
+Gauge range in Blynk should be set from 0 to 100.
+------------------------------------------------------------
+4) AUTO CUT-OFF SYSTEM
+If selected tank becomes FULL while motor is ON:
+- Relay turns OFF
+- Button resets to OFF
+- Notification event is triggered in Blynk
+System Features:
+- 2 Motors
+- 4 Tanks
+- Tank Selection
+- Auto Cut-Off
+- Gauge Display
+- Notification Alerts
