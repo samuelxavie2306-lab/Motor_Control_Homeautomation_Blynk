@@ -1,0 +1,108 @@
+#define BLYNK_TEMPLATE_ID "TMPL36bLV619Z"
+#define BLYNK_TEMPLATE_NAME "Salt and Good Water Automation"
+#define BLYNK_AUTH_TOKEN "JKUta7f6IP6kpCu3puwUkh1hx-6Zz0x5"
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+/************ WIFI ************/
+char ssid[] = "Airtel_xavi_9172";
+char pass[] = "air86274";
+
+/************ SENSOR PINS (LOW = FULL) ************/
+#define TANK_SALT   14   // D5 - Xavier Salt
+#define TANK_GOOD1  13   // D7 - Aquaguard
+#define TANK_GOOD2  0    // D3 - Bathroom
+
+/************ RELAY PINS (ACTIVE LOW) ************/
+#define RELAY_SALT  5    // D1
+#define RELAY_GOOD  4    // D2
+
+/************ STATE ************/
+int saltMotor = 0;
+int goodMotor = 0;
+int selectedGoodTank = -1;   // 0 = Aquaguard, 1 = Bathroom
+
+/************ BLYNK ************/
+// Salt Motor manual override
+BLYNK_WRITE(V1) {
+  saltMotor = param.asInt();
+  digitalWrite(RELAY_SALT, saltMotor ? LOW : HIGH);
+}
+
+// Good Motor control
+BLYNK_WRITE(V2) {
+  if (param.asInt() == 1) {
+    if ((selectedGoodTank == 0 && digitalRead(TANK_GOOD1) == LOW) ||
+        (selectedGoodTank == 1 && digitalRead(TANK_GOOD2) == LOW)) {
+      Blynk.virtualWrite(V2, 0);
+      return;
+    }
+  }
+  goodMotor = param.asInt();
+  digitalWrite(RELAY_GOOD, goodMotor ? LOW : HIGH);
+}
+
+// Good Tank dropdown
+BLYNK_WRITE(V8) {
+  selectedGoodTank = param.asInt();
+}
+
+/************ AUTO CONTROL ************/
+void autoSaltControl() {
+  int saltLevel = digitalRead(TANK_SALT);
+
+  // Salt Tank Logic:
+  // HIGH = Empty → Motor ON
+  // LOW  = Full  → Motor OFF
+  if (saltLevel == HIGH) { 
+    digitalWrite(RELAY_SALT, LOW);   // Active LOW relay → Motor ON
+    saltMotor = 1;
+    Blynk.virtualWrite(V1, 1);
+  } else { 
+    digitalWrite(RELAY_SALT, HIGH);  // Motor OFF
+    saltMotor = 0;
+    Blynk.virtualWrite(V1, 0);
+  }
+}
+
+void checkGoodAutoOff() {
+  int g1 = digitalRead(TANK_GOOD1);
+  int g2 = digitalRead(TANK_GOOD2);
+
+  // Auto cut-off for Good Motor
+  if (goodMotor == 1) {
+    if (selectedGoodTank == 0 && g1 == LOW) {
+      digitalWrite(RELAY_GOOD, HIGH);
+      goodMotor = 0;
+      Blynk.virtualWrite(V2, 0);
+    }
+    else if (selectedGoodTank == 1 && g2 == LOW) {
+      digitalWrite(RELAY_GOOD, HIGH);
+      goodMotor = 0;
+      Blynk.virtualWrite(V2, 0);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(RELAY_SALT, OUTPUT);
+  pinMode(RELAY_GOOD, OUTPUT);
+
+  pinMode(TANK_SALT, INPUT_PULLUP);
+  pinMode(TANK_GOOD1, INPUT_PULLUP);
+  pinMode(TANK_GOOD2, INPUT_PULLUP);
+
+  digitalWrite(RELAY_SALT, HIGH); // Motor OFF initially
+  digitalWrite(RELAY_GOOD, HIGH);
+
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+}
+
+void loop() {
+  Blynk.run();
+  autoSaltControl();
+  checkGoodAutoOff();
+}
